@@ -250,7 +250,6 @@ const App = () => {
     return config.baseSalary + bonus - denda;
   };
 
-  // --- PDF GENERATOR (Diperbarui dengan Timeout) ---
   const downloadPDFReport = () => {
     try {
       const iframe = document.createElement('iframe');
@@ -321,7 +320,6 @@ const App = () => {
       const doc = iframe.contentWindow.document;
       doc.open(); doc.write(htmlContent); doc.close();
       
-      // Delay agar DOM tabel selesai dimuat sebelum Print dialog terbuka
       setTimeout(() => { 
          iframe.contentWindow.focus(); 
          iframe.contentWindow.print(); 
@@ -405,7 +403,7 @@ const App = () => {
     return <span className={`px-2 py-1 rounded-md text-[10px] font-bold uppercase ${styles[type] || 'bg-slate-100 text-slate-600'}`}>{type}</span>;
   };
 
-  // FUNGSI INI AKAN MENUTUP SIDEBAR OTOMATIS SAAT MENU DIKLIK
+  // --- FUNGSI TUTUP SIDEBAR OTOMATIS ---
   const handleNav = (targetView) => {
     setView(targetView);
     setIsSidebarOpen(false); 
@@ -457,15 +455,15 @@ const App = () => {
           )}
         </nav>
         <div className="p-6 border-t bg-slate-50">
-          <button onClick={() => { setIsLoggedIn(false); setUser(null); }} className="w-full flex items-center gap-2 justify-center px-4 py-2.5 text-rose-600 bg-white border shadow-sm hover:bg-rose-50 rounded-xl transition text-xs font-bold"><LogOut size={16} /> Keluar Akun</button>
+          <button onClick={() => { setIsLoggedIn(false); setUser(null); setIsSidebarOpen(false); }} className="w-full flex items-center gap-2 justify-center px-4 py-2.5 text-rose-600 bg-white border shadow-sm hover:bg-rose-50 rounded-xl transition text-xs font-bold"><LogOut size={16} /> Keluar Akun</button>
         </div>
       </aside>
 
-      {/* Main Content Area */}
-      <main className="flex-1 min-w-0 overflow-y-auto">
+      {}
+      <main className="flex-1 min-w-0 overflow-y-auto w-full">
         <header className="bg-white border-b px-6 py-4 flex items-center justify-between sticky top-0 z-30 shadow-sm">
           <div className="flex items-center gap-4">
-            <button onClick={() => setIsSidebarOpen(true)} className="p-2.5 bg-slate-50 border shadow-sm rounded-xl text-slate-600 hover:text-indigo-600 hover:border-indigo-200 transition-all">
+            <button onClick={() => setIsSidebarOpen(!isSidebarOpen)} className="p-2.5 bg-slate-50 border shadow-sm rounded-xl text-slate-600 hover:text-indigo-600 hover:border-indigo-200 transition-all">
                <LayoutGrid size={20} />
             </button>
             <div className="hidden sm:block">
@@ -490,13 +488,14 @@ const App = () => {
                          <p className="text-sm font-black text-slate-800 truncate">{user.name}</p>
                          <p className="text-[10px] font-bold text-indigo-600 uppercase mt-0.5">{user.role}</p>
                       </div>
-                      <button onClick={() => { setIsLoggedIn(false); setUser(null); }} className="w-full flex items-center gap-2 px-4 py-3 text-sm font-bold text-rose-500 hover:bg-rose-50 transition"><LogOut size={16}/> Keluar Aplikasi</button>
+                      <button onClick={() => { setIsLoggedIn(false); setUser(null); setIsSidebarOpen(false); }} className="w-full flex items-center gap-2 px-4 py-3 text-sm font-bold text-rose-500 hover:bg-rose-50 transition"><LogOut size={16}/> Keluar Aplikasi</button>
                    </div>
                 )}
              </div>
           </div>
         </header>
 
+        {}
         <div className="p-4 md:p-8 space-y-6 max-w-6xl mx-auto pb-32">
           
           {/* VIEW: DASHBOARD USTADZ */}
@@ -539,7 +538,7 @@ const App = () => {
                       </button>
                    </div>
                    
-                   <div className="mt-6 inline-flex items-center gap-2 px-4 py-2 bg-slate-50 rounded-lg text-xs font-bold text-slate-500 border">
+                   <div className="mt-6 inline-flex items-center gap-2 px-4 py-2 bg-slate-50 rounded-lg text-xs font-bold text-slate-500 border w-full sm:w-auto justify-center">
                       <MapPin size={14} className={isLocationValid || simulationMode ? "text-emerald-500" : "text-rose-500"}/>
                       GPS Akurasi: ±{location.accuracy}m | Jarak: {location.distance}m
                       <button onClick={fetchLocation} className="ml-2 text-indigo-600 p-1 hover:bg-indigo-50 rounded"><RefreshCw size={14}/></button>
@@ -556,11 +555,11 @@ const App = () => {
                          <tbody className="divide-y">
                             {attendanceData.filter(a => a.userId === user.id).slice(0,10).map(a => (
                                <tr key={a.id} className="hover:bg-slate-50">
-                                  <td className="p-4 font-bold text-slate-800">{a.date}</td>
-                                  <td className="p-4 font-bold text-indigo-700">{a.session}</td>
+                                  <td className="p-4 font-bold text-slate-800 whitespace-nowrap">{a.date}</td>
+                                  <td className="p-4 font-bold text-indigo-700 whitespace-nowrap">{a.session}</td>
                                   <td className="p-4 font-mono text-slate-600">{a.timeIn}</td>
                                   <td className="p-4 font-mono text-slate-600">{a.status === 'Izin' || a.status === 'Sakit' ? '-' : a.timeOut}</td>
-                                  <td className="p-4">
+                                  <td className="p-4 min-w-[150px]">
                                      <StatusBadge type={a.status} />
                                      {a.lateMin > config.lateTolerance && <p className="text-[10px] font-bold text-rose-500 mt-1">Telat: {a.lateMin} Menit</p>}
                                      {a.earlyMin > 0 && <p className="text-[10px] font-bold text-amber-500 mt-1">Pulang Cepat: {a.earlyMin} Menit</p>}
@@ -574,14 +573,15 @@ const App = () => {
              </div>
           )}
 
+          {}
           {/* VIEW: ADMIN / MANAGEMENT */}
           {(view === 'admin' || view === 'management') && (
             <div className="space-y-6 animate-in fade-in duration-500">
                {/* Kalkulasi Alpa & Disiplin */}
                <div className="bg-white rounded-2xl border shadow-sm overflow-hidden">
-                  <div className="p-5 border-b bg-slate-50 flex items-center justify-between">
+                  <div className="p-4 sm:p-5 border-b bg-slate-50 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                      <h4 className="font-bold text-slate-800">Rekapitulasi Kehadiran & Kalkulasi Gaji</h4>
-                     <button onClick={downloadPDFReport} className="flex items-center gap-2 bg-indigo-600 text-white px-4 py-2 rounded-xl font-bold hover:bg-indigo-700 text-xs shadow-md transition"><Download size={14}/> Unduh Laporan PDF</button>
+                     <button onClick={downloadPDFReport} className="flex items-center justify-center gap-2 bg-indigo-600 text-white px-4 py-2 rounded-xl font-bold hover:bg-indigo-700 text-xs shadow-md transition w-full sm:w-auto"><Download size={14}/> Laporan PDF</button>
                   </div>
                   <div className="overflow-x-auto">
                      <table className="w-full text-sm text-left">
@@ -596,10 +596,10 @@ const App = () => {
                         <tbody className="divide-y divide-slate-100">
                            {ustadzList.filter(u => u.role === 'ustadz').map(u => (
                                  <tr key={u.id} className="hover:bg-slate-50">
-                                    <td className="p-4 font-bold text-slate-800">{u.name}</td>
+                                    <td className="p-4 font-bold text-slate-800 whitespace-nowrap">{u.name}</td>
                                     <td className="p-4 text-center font-bold text-emerald-600">{attendanceData.filter(a => a.userId === u.id && (a.status === 'Hadir' || a.status === 'Terlambat')).length} Sesi</td>
                                     <td className="p-4 text-center font-bold text-rose-500">{attendanceData.filter(a => a.userId === u.id && a.status === 'Terlambat').length} Kali</td>
-                                    <td className="p-4 text-center font-black text-indigo-600">Rp {calculateTotalSalary(u.id).toLocaleString('id-ID')}</td>
+                                    <td className="p-4 text-center font-black text-indigo-600 whitespace-nowrap">Rp {calculateTotalSalary(u.id).toLocaleString('id-ID')}</td>
                                  </tr>
                            ))}
                         </tbody>
@@ -611,7 +611,7 @@ const App = () => {
                <div className="bg-white rounded-2xl border shadow-sm overflow-hidden">
                   <div className="p-5 border-b bg-slate-50"><h4 className="font-bold text-slate-800">Verifikasi Foto Ganda (1:1)</h4></div>
                   <div className="overflow-x-auto p-4">
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                            {attendanceData.map(a => (
                               <div key={a.id} className="p-4 border rounded-2xl bg-white shadow-sm flex flex-col gap-4">
                                  <div className="flex gap-2">
@@ -626,10 +626,10 @@ const App = () => {
                                  </div>
                                  <div>
                                     <div className="flex items-center justify-between mb-1">
-                                       <p className="font-bold text-slate-800">{a.userName}</p>
+                                       <p className="font-bold text-slate-800 truncate">{a.userName}</p>
                                        <StatusBadge type={a.status} />
                                     </div>
-                                    <p className="text-[10px] text-slate-500 font-bold uppercase">{a.session} | {a.date}</p>
+                                    <p className="text-[10px] text-slate-500 font-bold uppercase truncate">{a.session} | {a.date}</p>
                                     <p className="text-[10px] text-slate-400 font-mono mt-1">Waktu: {a.timeIn} - {a.timeOut}</p>
                                     {a.lateMin > 0 && <p className="text-[10px] font-bold text-rose-500 mt-0.5">Telat: {a.lateMin} Mnt</p>}
                                     {a.earlyMin > 0 && <p className="text-[10px] font-bold text-amber-500 mt-0.5">Pulang Cepat: {a.earlyMin} Mnt</p>}
@@ -642,35 +642,37 @@ const App = () => {
             </div>
           )}
 
+          {}
           {/* Pengaturan Aplikasi ADMIN */}
           {view === 'admin-set' && (
              <div className="space-y-6 animate-in fade-in">
                 <div className="bg-white rounded-2xl border shadow-sm p-6">
                    <h4 className="font-bold text-slate-800 mb-6 flex items-center gap-2"><Settings size={20} className="text-indigo-600"/> Identitas & Parameter Gaji</h4>
-                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                       <div className="space-y-1"><label className="text-[10px] font-bold text-slate-400 uppercase">Nama Aplikasi</label><input type="text" className="w-full p-3 bg-slate-50 border rounded-xl font-bold text-sm" value={config.appName} onChange={e => setConfig({...config, appName: e.target.value})} /></div>
                       <div className="space-y-1"><label className="text-[10px] font-bold text-slate-400 uppercase">Gaji Pokok</label><input type="number" className="w-full p-3 bg-slate-50 border rounded-xl font-bold text-sm" value={config.baseSalary} onChange={e => setConfig({...config, baseSalary: parseInt(e.target.value) || 0})} /></div>
                       <div className="space-y-1"><label className="text-[10px] font-bold text-slate-400 uppercase">Bonus Sesi</label><input type="number" className="w-full p-3 bg-emerald-50 border border-emerald-100 rounded-xl font-bold text-sm text-emerald-700" value={config.incentivePerSession} onChange={e => setConfig({...config, incentivePerSession: parseInt(e.target.value) || 0})} /></div>
                       <div className="space-y-1"><label className="text-[10px] font-bold text-slate-400 uppercase">Denda Telat</label><input type="number" className="w-full p-3 bg-rose-50 border border-rose-100 rounded-xl font-bold text-sm text-rose-600" value={config.lateDeduction} onChange={e => setConfig({...config, lateDeduction: parseInt(e.target.value) || 0})} /></div>
                    </div>
-                   <button onClick={(e) => { e.target.innerText="MENYIMPAN..."; setTimeout(()=>{e.target.innerText="✓ TERSIMPAN"; e.target.classList.add('bg-emerald-600'); setTimeout(()=> {e.target.innerText="Simpan Pengaturan"; e.target.classList.remove('bg-emerald-600');}, 2000)}, 800) }} className="mt-6 px-6 py-2.5 bg-indigo-600 text-white font-bold rounded-xl text-sm shadow-md transition-colors">Simpan Pengaturan</button>
+                   <button onClick={(e) => { e.target.innerText="MENYIMPAN..."; setTimeout(()=>{e.target.innerText="✓ TERSIMPAN"; e.target.classList.add('bg-emerald-600'); setTimeout(()=> {e.target.innerText="Simpan Pengaturan"; e.target.classList.remove('bg-emerald-600');}, 2000)}, 800) }} className="mt-6 w-full sm:w-auto px-6 py-3 bg-indigo-600 text-white font-bold rounded-xl text-sm shadow-md transition-colors">Simpan Pengaturan</button>
                 </div>
              </div>
           )}
 
+          {}
           {/* Modal Kamera Double Step */}
           {cameraOpen && (
              <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/95 backdrop-blur-md">
                 <div className="bg-white w-full max-w-md rounded-2xl shadow-2xl overflow-hidden animate-in zoom-in duration-300">
                    <div className="p-4 bg-indigo-600 text-white flex justify-between items-center">
-                      <div><h3 className="text-xl font-black">{cameraStep === 1 ? 'Foto Ustadz' : 'Foto Santri'}</h3></div>
+                      <div><h3 className="text-lg sm:text-xl font-black">{cameraStep === 1 ? 'Foto Ustadz' : 'Foto Santri'}</h3></div>
                       <button onClick={() => { stopStream(); setCameraOpen(false); }} className="p-1.5 bg-white/10 rounded-lg hover:bg-white/20"><XCircle size={20}/></button>
                    </div>
-                   <div className="p-6 space-y-4">
+                   <div className="p-4 sm:p-6 space-y-4">
                       <div className={`p-3 rounded-lg text-center font-bold text-[10px] uppercase ${cameraStep===1?'bg-indigo-50 text-indigo-600':'bg-emerald-50 text-emerald-600'}`}>
                          {cameraStep===1?'1. Selfie Wajah':'2. Foto Suasana Ngaji'}
                       </div>
-                      <div className="relative aspect-video bg-slate-900 rounded-xl overflow-hidden border-2 border-slate-100">
+                      <div className="relative aspect-[3/4] sm:aspect-video bg-slate-900 rounded-xl overflow-hidden border-2 border-slate-100">
                          {((cameraStep === 1 && !tempPhotos.ustadz) || (cameraStep === 2 && !tempPhotos.murid)) ? (
                            <video ref={videoRef} autoPlay playsInline className={`w-full h-full object-cover ${cameraStep === 1 ? 'transform rotate-y-180' : ''}`} />
                          ) : (
@@ -680,16 +682,16 @@ const App = () => {
                          )}
                          <canvas ref={canvasRef} className="hidden" />
                       </div>
-                      <div className="flex gap-3">
+                      <div className="flex flex-col sm:flex-row gap-3">
                          {((cameraStep === 1 && !tempPhotos.ustadz) || (cameraStep === 2 && !tempPhotos.murid)) ? (
-                           <button onClick={capture} className="flex-1 bg-indigo-600 text-white py-4 rounded-xl font-bold text-sm shadow-md hover:bg-indigo-700 active:scale-95 flex items-center justify-center gap-2"><Camera size={18}/> Ambil Foto</button>
+                           <button onClick={capture} className="w-full bg-indigo-600 text-white py-4 rounded-xl font-bold text-sm shadow-md hover:bg-indigo-700 active:scale-95 flex items-center justify-center gap-2"><Camera size={18}/> Ambil Foto</button>
                          ) : (
                            <>
-                             <button onClick={() => cameraStep === 1 ? setTempPhotos({...tempPhotos, ustadz: null}) : setTempPhotos({...tempPhotos, murid: null})} className="flex-1 bg-slate-100 text-slate-500 py-4 rounded-xl font-bold text-sm">Ulangi</button>
+                             <button onClick={() => cameraStep === 1 ? setTempPhotos({...tempPhotos, ustadz: null}) : setTempPhotos({...tempPhotos, murid: null})} className="w-full sm:w-1/3 bg-slate-100 text-slate-500 py-4 rounded-xl font-bold text-sm">Ulangi</button>
                              {cameraStep === 1 ? (
-                               <button onClick={() => startCamera(2)} className="flex-1 bg-indigo-600 text-white py-4 rounded-xl font-bold text-sm shadow-md hover:bg-indigo-700">Lanjut</button>
+                               <button onClick={() => startCamera(2)} className="w-full sm:w-2/3 bg-indigo-600 text-white py-4 rounded-xl font-bold text-sm shadow-md hover:bg-indigo-700">Lanjut</button>
                              ) : (
-                               <button onClick={submitAttendance} className="flex-1 bg-emerald-600 text-white py-4 rounded-xl font-bold text-sm shadow-md hover:bg-emerald-700 animate-bounce">Kirim Absen</button>
+                               <button onClick={submitAttendance} className="w-full sm:w-2/3 bg-emerald-600 text-white py-4 rounded-xl font-bold text-sm shadow-md hover:bg-emerald-700 animate-bounce">Kirim Absen</button>
                              )}
                            </>
                          )}
@@ -699,6 +701,7 @@ const App = () => {
              </div>
           )}
 
+          {}
           {/* Modal Izin Compact */}
           {isPermitOpen && (
              <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/90 backdrop-blur-sm">
@@ -740,9 +743,10 @@ const App = () => {
         </div>
       </main>
 
+      {}
       {/* Simulator Tools Bawah */}
       {simulationMode && (
-         <div className="fixed bottom-4 left-1/2 -translate-x-1/2 z-[200] bg-slate-900/90 backdrop-blur-md px-4 py-2 rounded-full flex gap-2 shadow-2xl scale-75 md:scale-100">
+         <div className="fixed bottom-4 left-1/2 -translate-x-1/2 z-[200] bg-slate-900/90 backdrop-blur-md px-4 py-2 rounded-full flex gap-2 shadow-2xl scale-75 md:scale-100 whitespace-nowrap">
             {['admin', 'manajemen', 'ustadz'].map(r => (
               <button key={r} onClick={() => { setUser({...user, role: r}); setView(r === 'manajemen' ? 'management' : r === 'admin' ? 'admin' : 'dashboard'); }} className={`px-3 py-1.5 rounded-lg text-[10px] font-bold uppercase transition ${user.role === r ? 'bg-indigo-600 text-white' : 'text-slate-400 hover:text-white'}`}>{r}</button>
             ))}
