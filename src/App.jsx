@@ -23,7 +23,7 @@ const INITIAL_CONFIG = {
   activeHolidays: []
 };
 
-// --- CUSTOM PDF GENERATOR (MOBILE FRIENDLY FIX) ---
+// --- CUSTOM PDF GENERATOR (TANPA TAB BARU) ---
 const generateCleanPDF = (data, config, currentTime) => {
   try {
     const tableRows = data.length === 0 
@@ -91,15 +91,22 @@ const generateCleanPDF = (data, config, currentTime) => {
       </html>
     `;
     
-    // FIX MOBILE: Gunakan window.open alih-alih hidden iframe
-    const printWindow = window.open('', '_blank');
-    if (printWindow) {
-       printWindow.document.open();
-       printWindow.document.write(htmlContent);
-       printWindow.document.close();
-    } else {
-       alert("Browser HP memblokir Tab Baru. Harap izinkan Pop-up untuk melihat PDF.");
+    // BIKIN BINGKAI TERSEMBUNYI (HIDDEN IFRAME) AGAR TIDAK BUKA TAB BARU
+    let iframe = document.getElementById('print-iframe');
+    if (!iframe) {
+       iframe = document.createElement('iframe');
+       iframe.id = 'print-iframe';
+       iframe.style.position = 'absolute';
+       iframe.style.width = '0px';
+       iframe.style.height = '0px';
+       iframe.style.border = 'none';
+       document.body.appendChild(iframe);
     }
+
+    iframe.contentWindow.document.open();
+    iframe.contentWindow.document.write(htmlContent);
+    iframe.contentWindow.document.close();
+
   } catch (err) { alert("Gagal membuat PDF: " + err.message); }
 };
 
@@ -117,7 +124,7 @@ const App = () => {
   const [currentTime, setCurrentTime] = useState(new Date());
   const [isSidebarOpen, setIsSidebarOpen] = useState(false); 
   const [isProfileDropdownOpen, setIsProfileDropdownOpen] = useState(false);
-  const [simulationMode, setSimulationMode] = useState(false);
+  const [simulationMode, setSimulationMode] = useState(true);
   const [toast, setToast] = useState({ show: false, msg: '' });
   const [confirmDialog, setConfirmDialog] = useState({ isOpen: false, msg: '', onConfirm: null });
   const [notifications, setNotifications] = useState([]);
