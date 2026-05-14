@@ -23,6 +23,80 @@ const INITIAL_CONFIG = {
   activeHolidays: []
 };
 
+// --- CUSTOM PDF GENERATOR ---
+const generateCleanPDF = (data, config, currentTime) => {
+  try {
+    const iframe = document.createElement('iframe');
+    iframe.style.display = 'none';
+    document.body.appendChild(iframe);
+    
+    const tableRows = data.length === 0 
+      ? '<tr><td colspan="4" style="text-align: center; padding: 20px;">Belum ada data kehadiran</td></tr>'
+      : data.map(a => {
+          let keterangan = a.status;
+          if (a.lateMin > config.lateTolerance) keterangan += ` (Telat ${a.lateMin} Mnt)`;
+          if (a.earlyMin > 0) keterangan += ` (Pulang Cepat ${a.earlyMin} Mnt)`;
+          if (a.note) keterangan += ` - ${a.note}`;
+          
+          return `
+            <tr>
+               <td>${a.date}</td>
+               <td style="font-weight: bold;">${a.userName}</td>
+               <td>${a.status === 'Izin' || a.status === 'Sakit' ? '-' : `${a.timeIn} s/d ${a.timeOut}`}</td>
+               <td>${keterangan}</td>
+            </tr>
+          `;
+        }).join('');
+
+    const htmlContent = `
+      <!DOCTYPE html>
+      <html>
+         <head>
+            <title>Laporan Kehadiran</title>
+            <style>
+               @page { margin: 15mm; size: auto; }
+               body { font-family: Arial, sans-serif; padding: 0; margin: 0; color: #333; line-height: 1.5; }
+               .header { text-align: center; border-bottom: 2px solid #333; padding-bottom: 15px; margin-bottom: 20px; }
+               h1 { margin: 0 0 5px 0; font-size: 20px; text-transform: uppercase; }
+               table { width: 100%; border-collapse: collapse; font-size: 12px; margin-top: 20px; page-break-inside: auto; }
+               tr { page-break-inside: avoid; page-break-after: auto; }
+               th { background-color: #f1f5f9; padding: 10px; border: 1px solid #cbd5e1; text-align: left; }
+               td { padding: 8px 10px; border: 1px solid #e2e8f0; }
+               .footer { margin-top: 40px; text-align: right; font-size: 12px; page-break-inside: avoid; }
+               .signature { margin-top: 60px; font-weight: bold; }
+            </style>
+         </head>
+         <body>
+            <div class="header">
+               <h1>LAPORAN KEHADIRAN USTADZ</h1>
+               <p>${config.appName}</p>
+            </div>
+            <table>
+               <thead>
+                  <tr>
+                     <th width="15%">Tanggal</th>
+                     <th width="25%">Nama Ustadz</th>
+                     <th width="25%">Waktu Ngaji</th>
+                     <th width="35%">Keterangan</th>
+                  </tr>
+               </thead>
+               <tbody>${tableRows}</tbody>
+            </table>
+            <div class="footer">
+               <p>Mengetahui,</p>
+               <p class="signature">Admin / Pengurus Asrama</p>
+            </div>
+            <script> window.onload = function() { window.print(); window.close(); } </script>
+         </body>
+      </html>
+    `;
+    const doc = iframe.contentWindow.document;
+    doc.open(); doc.write(htmlContent); doc.close();
+    
+    setTimeout(() => { document.body.removeChild(iframe); }, 3000);
+  } catch (err) { alert("Gagal mengunduh PDF."); }
+};
+
 const App = () => {
   // --- LOGIN & AUTH STATES ---
   const [isLoggedIn, setIsLoggedIn] = useState(false);
@@ -35,9 +109,9 @@ const App = () => {
   // --- MAIN APP STATES ---
   const [view, setView] = useState(''); 
   const [currentTime, setCurrentTime] = useState(new Date());
-  const [isSidebarOpen, setIsSidebarOpen] = useState(false); 
+  const [isSidebarOpen, setIsSidebarOpen] = useState(true); 
   const [isProfileDropdownOpen, setIsProfileDropdownOpen] = useState(false);
-  const [simulationMode, setSimulationMode] = useState(false);
+  const [simulationMode, setSimulationMode] = useState(true);
   const [toast, setToast] = useState({ show: false, msg: '' });
   const [confirmDialog, setConfirmDialog] = useState({ isOpen: false, msg: '', onConfirm: null });
   const [notifications, setNotifications] = useState([]);
@@ -66,10 +140,10 @@ const App = () => {
   ]);
   const [holidays, setHolidays] = useState([]);
   const [ustadzList, setUstadzList] = useState([
-    { id: 1, name: 'Ust. Fajar', role: 'admin', username: 'admin', password: '123' },
-    { id: 99, name: 'Bpk. Manajemen', role: 'manajemen', username: 'manajemen', password: '123' },
-    { id: 2, name: 'Ust. Ahmad', role: 'ustadz', username: 'ahmad', password: '123' },
-    { id: 3, name: 'Ust. Hamzah', role: 'ustadz', username: 'hamzah', password: '123' },
+    { id: 1, name: 'Ust. Fajar', role: 'admin', username: 'admin', password: '123', profilePic: null, alamat: '', hobi: '', moto: '' },
+    { id: 99, name: 'Bpk. Manajemen', role: 'manajemen', username: 'manajemen', password: '123', profilePic: null, alamat: '', hobi: '', moto: '' },
+    { id: 2, name: 'Ust. Ahmad', role: 'ustadz', username: 'ahmad', password: '123', profilePic: null, alamat: '', hobi: '', moto: '' },
+    { id: 3, name: 'Ust. Hamzah', role: 'ustadz', username: 'hamzah', password: '123', profilePic: null, alamat: '', hobi: '', moto: '' },
   ]);
 
   // Form States
@@ -271,6 +345,7 @@ const App = () => {
     let alpa = totalTargetSesi - totalHadir - totalIzin - totalLibur;
     return alpa > 0 ? alpa : 0;
   };
+
   // Gaji Sync
   const calculateTotalSalary = (uId) => {
     const uData = attendanceData.filter(a => a.userId === uId && (a.status === 'Hadir' || a.status === 'Terlambat'));
@@ -290,78 +365,6 @@ const App = () => {
     const dendaIzin = totalSesiIzin * (config.permitDeduction || 0);
 
     return config.baseSalary + bonus - dendaTelat - dendaIzin;
-  };
-
-  const downloadPDFReport = () => {
-    try {
-      const iframe = document.createElement('iframe');
-      iframe.style.display = 'none';
-      document.body.appendChild(iframe);
-      
-      const tableRows = attendanceData.length === 0 
-        ? '<tr><td colspan="4" style="text-align: center; padding: 20px;">Belum ada data kehadiran</td></tr>'
-        : attendanceData.map(a => {
-            let keterangan = a.status;
-            if (a.lateMin > config.lateTolerance) keterangan += ` (Telat ${a.lateMin} Mnt)`;
-            if (a.earlyMin > 0) keterangan += ` (Pulang Cepat ${a.earlyMin} Mnt)`;
-            if (a.note) keterangan += ` - ${a.note}`;
-            
-            return `
-              <tr>
-                 <td>${a.date}</td>
-                 <td style="font-weight: bold;">${a.userName}</td>
-                 <td>${a.status === 'Izin' || a.status === 'Sakit' ? '-' : `${a.timeIn} s/d ${a.timeOut}`}</td>
-                 <td>${keterangan}</td>
-              </tr>
-            `;
-          }).join('');
-
-      const htmlContent = `
-        <!DOCTYPE html>
-        <html>
-           <head>
-              <title>Laporan Kehadiran</title>
-              <style>
-                 @page { margin: 15mm; size: auto; }
-                 body { font-family: Arial, sans-serif; padding: 0; margin: 0; color: #333; line-height: 1.5; }
-                 .header { text-align: center; border-bottom: 2px solid #333; padding-bottom: 15px; margin-bottom: 20px; }
-                 h1 { margin: 0 0 5px 0; font-size: 20px; text-transform: uppercase; }
-                 table { width: 100%; border-collapse: collapse; font-size: 12px; margin-top: 20px; page-break-inside: auto; }
-                 tr { page-break-inside: avoid; page-break-after: auto; }
-                 th { background-color: #f1f5f9; padding: 10px; border: 1px solid #cbd5e1; text-align: left; }
-                 td { padding: 8px 10px; border: 1px solid #e2e8f0; }
-                 .footer { margin-top: 40px; text-align: right; font-size: 12px; page-break-inside: avoid; }
-                 .signature { margin-top: 60px; font-weight: bold; }
-              </style>
-           </head>
-           <body>
-              <div class="header">
-                 <h1>LAPORAN KEHADIRAN USTADZ</h1>
-              </div>
-              <table>
-                 <thead>
-                    <tr>
-                       <th width="15%">Tanggal</th>
-                       <th width="25%">Nama Ustadz</th>
-                       <th width="25%">Waktu Ngaji</th>
-                       <th width="35%">Keterangan</th>
-                    </tr>
-                 </thead>
-                 <tbody>${tableRows}</tbody>
-              </table>
-              <div class="footer">
-                 <p>Mengetahui,</p>
-                 <p class="signature">Admin / Pengurus Asrama</p>
-              </div>
-              <script> window.onload = function() { window.print(); window.close(); } </script>
-           </body>
-        </html>
-      `;
-      const doc = iframe.contentWindow.document;
-      doc.open(); doc.write(htmlContent); doc.close();
-      
-      setTimeout(() => { document.body.removeChild(iframe); }, 3000);
-    } catch (err) { alert("Gagal mengunduh PDF."); }
   };
 
   const renderLoginScreen = () => {
@@ -442,6 +445,307 @@ const App = () => {
     setIsSidebarOpen(false); 
   };
 
+  const renderSharedDashboard = () => (
+    <div className="space-y-6 animate-in fade-in">
+       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          <div className="bg-indigo-600 p-6 rounded-2xl text-white shadow-lg"><h4 className="text-sm font-bold opacity-80 mb-2 uppercase tracking-widest">Total Ustadz</h4><p className="text-4xl font-black">{ustadzList.filter(u => u.role === 'ustadz').length}</p></div>
+          <div className="bg-white p-6 rounded-2xl border shadow-sm"><h4 className="text-sm font-bold text-slate-400 mb-2 uppercase tracking-widest">Kehadiran Hari Ini</h4><p className="text-4xl font-black text-emerald-600">{attendanceData.filter(a => a.date === todayStr && a.status === 'Hadir').length}</p></div>
+          <div className="bg-white p-6 rounded-2xl border shadow-sm"><h4 className="text-sm font-bold text-slate-400 mb-2 uppercase tracking-widest">Izin / Sakit</h4><p className="text-4xl font-black text-amber-500">{permissions.filter(p => p.date === todayStr).length}</p></div>
+       </div>
+
+       <div className="bg-white rounded-2xl border shadow-sm overflow-hidden">
+          <div className="p-5 border-b bg-slate-50 flex items-center justify-between"><h4 className="font-bold text-slate-800">Rekapitulasi Kehadiran & Alpa</h4><span className="text-xs font-bold text-slate-500 bg-white px-3 py-1 rounded-md border">Target Bulan Ini: {getHariBulanIni() * schedules.length} Sesi</span></div>
+          <div className="overflow-x-auto">
+             <table className="w-full text-sm text-left">
+                <thead className="bg-white border-b text-[10px] font-bold text-slate-400 uppercase">
+                   <tr>
+                      <th className="p-4">Nama Ustadz</th>
+                      {schedules.map(s => <th key={s.id} className="p-4 text-center">{s.name}</th>)}
+                      <th className="p-4 text-center text-sky-600">Total Izin</th>
+                      <th className="p-4 text-center text-rose-600">Belum Absen (Alpa)</th>
+                   </tr>
+                </thead>
+                <tbody className="divide-y">
+                   {ustadzList.filter(u => u.role === 'ustadz').map(u => (
+                      <tr key={u.id} className="hover:bg-slate-50">
+                         <td className="p-4 font-bold text-slate-800">{u.name}</td>
+                         {schedules.map(s => (
+                            <td key={s.id} className="p-4 text-center font-bold text-slate-600">
+                               {attendanceData.filter(a => a.userId === u.id && a.sessionId === s.id && (a.status === 'Hadir' || a.status === 'Terlambat')).length + holidays.filter(h => h.isFullDay || h.sessions.includes(s.id)).length}
+                            </td>
+                         ))}
+                         <td className="p-4 text-center font-bold text-sky-600">{permissions.filter(p => p.userId === u.id).reduce((acc, p) => acc + (p.isFullDay ? schedules.length : p.selectedSessions?.length || 1), 0)}</td>
+                         <td className="p-4 text-center font-black text-rose-600">{hitungAlpa(u.id)}</td>
+                      </tr>
+                   ))}
+                </tbody>
+             </table>
+          </div>
+       </div>
+    </div>
+  );
+
+  const renderAdminUsers = () => (
+    <div className="bg-white rounded-2xl border shadow-sm animate-in fade-in overflow-hidden">
+       <div className="p-5 border-b bg-slate-50"><h4 className="font-bold text-slate-800">Manajemen Akun Ustadz</h4></div>
+       <div className="p-6 border-b grid grid-cols-1 md:grid-cols-4 gap-4 items-end bg-slate-50/50">
+          <div className="space-y-1"><label className="text-xs font-bold text-slate-500">Nama Lengkap</label><input type="text" className="w-full p-3 border bg-white rounded-xl text-sm font-medium" value={userForm.name} onChange={e => setUserForm({...userForm, name: e.target.value})} /></div>
+          <div className="space-y-1"><label className="text-xs font-bold text-slate-500">Username</label><input type="text" className="w-full p-3 border bg-white rounded-xl text-sm font-medium" value={userForm.username} onChange={e => setUserForm({...userForm, username: e.target.value})} /></div>
+          <div className="space-y-1 relative">
+             <label className="text-xs font-bold text-slate-500">Password</label>
+             <input type={showPassword?"text":"password"} className="w-full p-3 border bg-white rounded-xl text-sm font-medium pr-10" value={userForm.password} onChange={e => setUserForm({...userForm, password: e.target.value})} />
+             <button onClick={()=>setShowPassword(!showPassword)} className="absolute right-3 top-9 text-slate-400">{showPassword ? <EyeOff size={16}/> : <Eye size={16}/>}</button>
+          </div>
+          <button onClick={() => {
+             if(!userForm.name) return showToastMsg("Nama wajib diisi!");
+             if(userForm.id) { setUstadzList(ustadzList.map(u => u.id === userForm.id ? {...u, ...userForm} : u)); showToastMsg("User Diedit"); }
+             else { setUstadzList([...ustadzList, {...userForm, id: Date.now()}]); showToastMsg("User Ditambahkan"); }
+             setUserForm({ id: null, name: '', username: '', password: '', role: 'ustadz' });
+          }} className="w-full py-3 bg-indigo-600 text-white rounded-xl font-bold text-sm hover:bg-indigo-700 transition shadow-md">SIMPAN DATA USER</button>
+       </div>
+       <div className="overflow-x-auto">
+          <table className="w-full text-sm text-left">
+             <thead className="bg-slate-50 border-b text-[10px] font-bold text-slate-500 uppercase"><tr><th className="p-4">Nama</th><th className="p-4">Username</th><th className="p-4">Password</th><th className="p-4">Aksi</th></tr></thead>
+             <tbody className="divide-y">
+                {ustadzList.filter(u => u.role === 'ustadz').map(u => (
+                  <tr key={u.id} className="hover:bg-slate-50">
+                     <td className="p-4 font-bold text-slate-800">{u.name}</td>
+                     <td className="p-4">{u.username}</td>
+                     <td className="p-4 font-mono text-slate-500 relative group cursor-pointer">
+                        <span className="group-hover:hidden">••••••</span><span className="hidden group-hover:inline">{u.password}</span>
+                     </td>
+                     <td className="p-4 flex gap-3">
+                        <button onClick={() => setUserForm(u)} className="text-indigo-600 font-bold text-xs hover:underline">Edit</button>
+                        <button onClick={() => setConfirmDialog({ isOpen: true, msg: `Hapus akun ${u.name}?`, onConfirm: () => { setUstadzList(ustadzList.filter(x => x.id !== u.id)); setConfirmDialog({isOpen:false, msg:'', onConfirm:null}); showToastMsg("User Dihapus"); }})} className="text-rose-600 font-bold text-xs hover:underline">Hapus</button>
+                     </td>
+                  </tr>
+                ))}
+             </tbody>
+          </table>
+       </div>
+    </div>
+  );
+
+  const renderAdminSchedules = () => (
+    <div className="space-y-6 animate-in fade-in">
+       <div className="bg-white rounded-xl border shadow-sm">
+          <div className="p-5 border-b bg-slate-50"><h4 className="font-bold text-slate-800 text-sm">Jadwal Ngaji</h4></div>
+          <div className="p-6 border-b grid grid-cols-1 md:grid-cols-4 gap-4 items-end bg-slate-50/50">
+             <div className="space-y-1"><label className="text-xs font-bold text-slate-500">Nama Sesi</label><input type="text" className="w-full p-3 border bg-white rounded-xl text-sm font-medium" value={schForm.name} onChange={e => setSchForm({...schForm, name: e.target.value})} /></div>
+             <div className="space-y-1"><label className="text-xs font-bold text-slate-500">Jam Mulai</label><input type="time" className="w-full p-3 border bg-white rounded-xl text-sm font-medium" value={schForm.start} onChange={e => setSchForm({...schForm, start: e.target.value})} /></div>
+             <div className="space-y-1"><label className="text-xs font-bold text-slate-500">Jam Selesai</label><input type="time" className="w-full p-3 border bg-white rounded-xl text-sm font-medium" value={schForm.end} onChange={e => setSchForm({...schForm, end: e.target.value})} /></div>
+             <button onClick={() => {
+                if(!schForm.name) return showToastMsg("Nama jadwal harus diisi!");
+                if(schForm.id) setSchedules(schedules.map(s => s.id === schForm.id ? {...s, ...schForm} : s));
+                else setSchedules([...schedules, {...schForm, id: Date.now(), active: true}]);
+                setSchForm({ id: null, name: '', start: '', end: '' }); showToastMsg("Jadwal Disimpan");
+             }} className="w-full py-3 bg-indigo-600 text-white rounded-xl font-bold text-sm hover:bg-indigo-700 transition shadow-md">SIMPAN JADWAL</button>
+          </div>
+          <div className="p-6 grid grid-cols-1 md:grid-cols-3 gap-4">
+             {schedules.map(s => (
+                <div key={s.id} className="p-4 border rounded-xl bg-white flex flex-col justify-between">
+                   <div>
+                      <p className="font-bold text-slate-800">{s.name}</p>
+                      <p className="text-xs font-mono text-indigo-600 bg-indigo-50 inline-block px-2 py-1 rounded mt-2">{s.start} - {s.end}</p>
+                   </div>
+                   <div className="flex gap-3 mt-4 pt-4 border-t border-slate-100">
+                      <button onClick={()=>setSchForm(s)} className="text-indigo-600 text-xs font-bold hover:underline">Edit</button>
+                      <button onClick={()=>setConfirmDialog({isOpen:true, msg:`Hapus jadwal ${s.name}?`, onConfirm:()=>{setSchedules(schedules.filter(x=>x.id!==s.id)); setConfirmDialog({isOpen:false, msg:'', onConfirm:null}); showToastMsg("Jadwal Dihapus");}})} className="text-rose-600 text-xs font-bold hover:underline">Hapus</button>
+                   </div>
+                </div>
+             ))}
+          </div>
+       </div>
+
+       <div className="bg-white rounded-xl border shadow-sm">
+          <div className="p-5 border-b bg-slate-50"><h4 className="font-bold text-slate-800 text-sm">Manajemen Hari Libur Asrama</h4></div>
+          <div className="p-6 border-b space-y-4 bg-slate-50/50">
+             <div className="flex gap-4 items-center">
+                <input type="date" className="p-3 border bg-white rounded-xl text-sm font-medium" value={holidayForm.date} onChange={e => setHolidayForm({...holidayForm, date: e.target.value})} />
+                <label className="flex items-center gap-2 text-sm font-bold text-slate-700 cursor-pointer">
+                   <input type="checkbox" checked={holidayForm.isFullDay} onChange={e => setHolidayForm({...holidayForm, isFullDay: e.target.checked, sessions: []})} className="w-4 h-4 text-indigo-600 rounded" /> Libur 1 Hari Penuh
+                </label>
+             </div>
+             {!holidayForm.isFullDay && (
+                <div className="flex gap-4 flex-wrap bg-white p-4 rounded-xl border">
+                   <p className="w-full text-xs font-bold text-slate-500 mb-2">Pilih Sesi yang Diliburkan:</p>
+                   {schedules.map(s => (
+                      <label key={s.id} className="flex items-center gap-2 text-xs font-bold text-slate-700 bg-slate-50 px-3 py-2 border rounded-lg cursor-pointer">
+                         <input type="checkbox" checked={holidayForm.sessions.includes(s.id)} onChange={e => { const ns = e.target.checked ? [...holidayForm.sessions, s.id] : holidayForm.sessions.filter(x => x !== s.id); setHolidayForm({...holidayForm, sessions: ns}); }} className="rounded text-indigo-600" /> {s.name}
+                      </label>
+                   ))}
+                </div>
+             )}
+             <button onClick={() => {
+                if(!holidayForm.date) return showToastMsg("Pilih tanggal libur!");
+                const d = new Date(holidayForm.date).toLocaleDateString('id-ID');
+                setHolidays([...holidays, { id: Date.now(), date: d, isFullDay: holidayForm.isFullDay, sessions: holidayForm.sessions }]);
+                setHolidayForm({ date: '', isFullDay: true, sessions: [] }); showToastMsg("Libur Ditambahkan (Otomatis Dianggap Hadir)");
+             }} className="px-6 py-3 bg-indigo-600 text-white rounded-xl font-bold text-sm hover:bg-indigo-700 transition shadow-md">TAMBAHKAN LIBUR</button>
+          </div>
+          <div className="p-6 space-y-3">
+             {holidays.map(h => (
+                <div key={h.id} className="flex justify-between items-center p-4 border border-amber-200 rounded-xl bg-amber-50">
+                   <div>
+                      <p className="font-bold text-amber-900 text-sm">{h.date}</p>
+                      <p className="text-xs text-amber-700 font-medium mt-1">{h.isFullDay ? 'Libur Full Day' : `Libur Sesi: ${schedules.filter(s=>h.sessions.includes(s.id)).map(s=>s.name).join(', ')}`}</p>
+                   </div>
+                   <button onClick={() => setHolidays(holidays.filter(x=>x.id!==h.id))} className="text-rose-600 hover:bg-rose-100 p-2 rounded-lg transition"><Trash2 size={18}/></button>
+                </div>
+             ))}
+          </div>
+       </div>
+    </div>
+  );
+
+  const renderAdminSettings = () => (
+    <div className="space-y-6 animate-in fade-in">
+       <div className="bg-white rounded-xl border shadow-sm p-6">
+          <h4 className="font-bold text-slate-800 text-sm mb-6 flex items-center gap-2"><Settings size={18}/> Identitas Aplikasi & Upload Logo</h4>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+             <div className="space-y-2"><label className="text-xs font-bold text-slate-500">Nama Aplikasi</label><input type="text" className="w-full p-3 border rounded-xl text-sm font-medium bg-slate-50" value={config.appName} onChange={e => setConfig({...config, appName: e.target.value})} /></div>
+             <div className="space-y-2"><label className="text-xs font-bold text-slate-500">Slogan / Subjudul</label><input type="text" className="w-full p-3 border rounded-xl text-sm font-medium bg-slate-50" value={config.slogan} onChange={e => setConfig({...config, slogan: e.target.value})} /></div>
+             <div className="space-y-2 md:col-span-2">
+                <label className="text-xs font-bold text-slate-500">Upload Logo Aplikasi</label>
+                <div className="flex items-center gap-4 bg-slate-50 p-3 rounded-xl border border-dashed">
+                   {config.logoUrl ? <img src={config.logoUrl} className="w-16 h-16 object-contain drop-shadow-md" alt="Preview Logo" /> : <div className="w-14 h-14 bg-white rounded-xl border flex items-center justify-center text-slate-400"><BookOpen size={24}/></div>}
+                   <div className="flex-1">
+                      <input type="file" accept="image/*" onChange={(e) => { if(e.target.files[0]) setConfig({...config, logoUrl: URL.createObjectURL(e.target.files[0])}); }} className="w-full text-sm text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-indigo-50 file:text-indigo-700 cursor-pointer" />
+                      <p className="text-[10px] text-slate-400 mt-1 font-bold">*Logo ini akan muncul di Halaman Login dan Sidebar.</p>
+                   </div>
+                </div>
+             </div>
+          </div>
+          <button onClick={(e)=>{e.target.innerText="MENYIMPAN..."; setTimeout(()=>{e.target.innerText="✓ TERSIMPAN!"; e.target.classList.replace('bg-slate-900','bg-emerald-600'); setTimeout(()=>{e.target.innerText="SIMPAN IDENTITAS"; e.target.classList.replace('bg-emerald-600','bg-slate-900');},2000)}, 800)}} className="mt-6 px-6 py-3 bg-slate-900 text-white rounded-xl font-bold text-sm shadow-md transition-all">SIMPAN IDENTITAS</button>
+       </div>
+
+       <div className="bg-white rounded-xl border shadow-sm p-6">
+          <h4 className="font-bold text-slate-800 text-sm mb-6 flex items-center gap-2"><Settings size={18}/> Parameter Gaji & Denda</h4>
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+             <div className="space-y-2"><label className="text-xs font-bold text-slate-500">Gaji Pokok</label><input type="number" className="w-full p-3 border rounded-xl text-sm font-bold bg-slate-50" value={config.baseSalary} onChange={e => setConfig({...config, baseSalary: parseInt(e.target.value)||0})} /></div>
+             <div className="space-y-2"><label className="text-xs font-bold text-slate-500">Bonus Per Sesi</label><input type="number" className="w-full p-3 border rounded-xl text-sm font-bold text-emerald-600 bg-slate-50" value={config.incentivePerSession} onChange={e => setConfig({...config, incentivePerSession: parseInt(e.target.value)||0})} /></div>
+             <div className="space-y-2"><label className="text-xs font-bold text-slate-500">Denda Telat</label><input type="number" className="w-full p-3 border rounded-xl text-sm font-bold text-rose-600 bg-slate-50" value={config.lateDeduction} onChange={e => setConfig({...config, lateDeduction: parseInt(e.target.value)||0})} /></div>
+             <div className="space-y-2"><label className="text-xs font-bold text-slate-500">Denda Izin</label><input type="number" className="w-full p-3 border rounded-xl text-sm font-bold text-sky-600 bg-slate-50" value={config.permitDeduction} onChange={e => setConfig({...config, permitDeduction: parseInt(e.target.value)||0})} /></div>
+             <div className="space-y-2"><label className="text-xs font-bold text-slate-500">Toleransi Telat (Menit)</label><input type="number" className="w-full p-3 border rounded-xl text-sm font-bold text-amber-600 bg-slate-50" value={config.lateTolerance} onChange={e => setConfig({...config, lateTolerance: parseInt(e.target.value)||0})} /></div>
+          </div>
+          <button onClick={(e)=>{e.target.innerText="MENYIMPAN..."; setTimeout(()=>{e.target.innerText="✓ PARAMETER DISIMPAN!"; e.target.classList.replace('bg-indigo-600','bg-emerald-600'); setTimeout(()=>{e.target.innerText="SIMPAN PARAMETER"; e.target.classList.replace('bg-emerald-600','bg-indigo-600');},2000)}, 800)}} className="mt-6 px-6 py-3 bg-indigo-600 text-white rounded-xl font-bold text-sm shadow-md transition-all">SIMPAN PARAMETER</button>
+       </div>
+    </div>
+  );
+
+  const renderMgmtSettings = () => (
+     <div className="animate-in fade-in">
+        <div className="bg-white rounded-xl border shadow-sm p-6">
+          <h4 className="font-bold text-slate-800 text-sm mb-6 flex items-center gap-2"><Settings size={18}/> Pengaturan Parameter Keuangan (Mandiri)</h4>
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+             <div className="space-y-2"><label className="text-xs font-bold text-slate-500">Gaji Pokok</label><input type="number" className="w-full p-3 border rounded-xl text-sm font-bold bg-slate-50" value={config.baseSalary} onChange={e => setConfig({...config, baseSalary: parseInt(e.target.value)||0})} /></div>
+             <div className="space-y-2"><label className="text-xs font-bold text-slate-500">Bonus Per Sesi</label><input type="number" className="w-full p-3 border rounded-xl text-sm font-bold text-emerald-600 bg-slate-50" value={config.incentivePerSession} onChange={e => setConfig({...config, incentivePerSession: parseInt(e.target.value)||0})} /></div>
+             <div className="space-y-2"><label className="text-xs font-bold text-slate-500">Denda Telat</label><input type="number" className="w-full p-3 border rounded-xl text-sm font-bold text-rose-600 bg-slate-50" value={config.lateDeduction} onChange={e => setConfig({...config, lateDeduction: parseInt(e.target.value)||0})} /></div>
+             <div className="space-y-2"><label className="text-xs font-bold text-slate-500">Denda Izin</label><input type="number" className="w-full p-3 border rounded-xl text-sm font-bold text-sky-600 bg-slate-50" value={config.permitDeduction} onChange={e => setConfig({...config, permitDeduction: parseInt(e.target.value)||0})} /></div>
+             <div className="space-y-2"><label className="text-xs font-bold text-slate-500">Toleransi Telat (Menit)</label><input type="number" className="w-full p-3 border rounded-xl text-sm font-bold text-amber-600 bg-slate-50" value={config.lateTolerance} onChange={e => setConfig({...config, lateTolerance: parseInt(e.target.value)||0})} /></div>
+          </div>
+          <button onClick={(e)=>{e.target.innerText="MENYIMPAN..."; setTimeout(()=>{e.target.innerText="✓ PARAMETER DISIMPAN!"; e.target.classList.replace('bg-indigo-600','bg-emerald-600'); setTimeout(()=>{e.target.innerText="SIMPAN PENGATURAN"; e.target.classList.replace('bg-emerald-600','bg-indigo-600');},2000)}, 800)}} className="mt-6 px-6 py-3 bg-indigo-600 text-white rounded-xl font-bold text-sm shadow-md transition-all">SIMPAN PENGATURAN</button>
+        </div>
+     </div>
+  );
+
+  const renderMgmtSalary = () => (
+     <div className="space-y-6 animate-in fade-in">
+        <div className="bg-white rounded-xl border shadow-sm overflow-hidden">
+           <div className="p-6 border-b flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+              <div>
+                 <h4 className="font-bold text-slate-800 text-sm">Kalkulasi Gaji Real-Time</h4>
+                 <p className="text-[10px] text-slate-500 mt-1 max-w-xl">Setiap jam libur ngaji, keterlambatan, dan izin akan otomatis masuk ke estimasi gaji secara real-time.</p>
+              </div>
+              <div className="bg-indigo-50 px-4 py-2 rounded-lg border border-indigo-100 text-right">
+                 <p className="text-[10px] text-indigo-600 font-bold uppercase tracking-widest">Total Pengeluaran</p>
+                 <p className="text-xl font-black text-indigo-700">
+                    Rp {ustadzList.filter(u => u.role === 'ustadz').reduce((sum, u) => sum + calculateTotalSalary(u.id), 0).toLocaleString('id-ID')}
+                 </p>
+              </div>
+           </div>
+           <div className="overflow-x-auto">
+              <table className="w-full text-sm text-left">
+                 <thead className="bg-slate-50 border-b text-[10px] font-bold text-slate-500 uppercase">
+                    <tr>
+                       <th className="p-4">Nama Ustadz</th>
+                       <th className="p-4 text-center">Hadir (+Libur)</th>
+                       <th className="p-4 text-center text-rose-600">- Telat</th>
+                       <th className="p-4 text-center text-sky-600">- Izin</th>
+                       <th className="p-4 text-right">Estimasi Gaji Bersih</th>
+                    </tr>
+                 </thead>
+                 <tbody className="divide-y">
+                    {ustadzList.filter(u => u.role === 'ustadz').map(u => {
+                       const uData = attendanceData.filter(a => a.userId === u.id && (a.status === 'Hadir' || a.status === 'Terlambat'));
+                       const lates = uData.filter(a => a.status === 'Terlambat').length;
+                       const liburCount = holidays.reduce((acc, h) => acc + (h.isFullDay ? schedules.length : h.sessions?.length || 0), 0);
+                       
+                       const izinData = permissions.filter(p => p.userId === u.id);
+                       let totalIzin = 0;
+                       izinData.forEach(p => {
+                          if(p.isFullDay) totalIzin += schedules.length;
+                          else totalIzin += (p.selectedSessions?.length || 1);
+                       });
+
+                       return (
+                          <tr key={u.id} className="hover:bg-slate-50 transition-colors">
+                             <td className="p-4 font-bold text-slate-800">{u.name}</td>
+                             <td className="p-4 text-center font-bold text-slate-600">{uData.length + liburCount} Sesi</td>
+                             <td className="p-4 text-center font-bold text-rose-600">{lates}</td>
+                             <td className="p-4 text-center font-bold text-sky-600">{totalIzin}</td>
+                             <td className="p-4 font-black text-indigo-600 text-right text-lg">Rp {calculateTotalSalary(u.id).toLocaleString('id-ID')}</td>
+                          </tr>
+                       );
+                    })}
+                 </tbody>
+              </table>
+           </div>
+        </div>
+
+        <div className="bg-white rounded-xl border shadow-sm overflow-hidden">
+           <div className="p-6 border-b bg-slate-50 flex flex-col md:flex-row md:items-center justify-between gap-4">
+              <h4 className="font-bold text-slate-800 text-sm">Audit Keuangan & Verifikasi Foto Ganda 1:1</h4>
+              <button onClick={() => generateCleanPDF(attendanceData, config, currentTime)} className="flex items-center gap-2 bg-indigo-600 text-white px-4 py-2 rounded-xl font-bold hover:bg-indigo-700 text-xs shadow-md transition"><Download size={14}/> Unduh Laporan PDF</button>
+           </div>
+           <div className="overflow-x-auto">
+              <table className="w-full text-sm text-left">
+                 <thead className="bg-white border-b text-[10px] font-bold text-slate-500 uppercase">
+                    <tr><th className="p-4">Tanggal & Sesi</th><th className="p-4">Nama Ustadz</th><th className="p-4 text-center">Verifikasi Visual (1:1)</th><th className="p-4">Catatan Waktu & Status</th></tr>
+                 </thead>
+                 <tbody className="divide-y">
+                    {attendanceData.length === 0 ? <tr><td colSpan="4" className="p-10 text-center text-slate-400 font-bold italic">Belum ada data absensi yang masuk.</td></tr> : attendanceData.map(a => (
+                      <tr key={a.id} className="hover:bg-slate-50">
+                         <td className="p-4 align-middle"><p className="font-bold text-slate-800">{a.date}</p><p className="text-xs text-indigo-600 font-bold mt-1 uppercase">{a.session}</p></td>
+                         <td className="p-4 font-bold text-slate-800 align-middle">{a.userName}</td>
+                         <td className="p-4 align-middle">
+                            <div className="flex justify-center gap-3">
+                               <div className="w-16 h-16 bg-slate-200 rounded-lg overflow-hidden border shadow-sm relative group">
+                                  {a.photoUstadz ? <img src={a.photoUstadz} className="w-full h-full object-cover" /> : <div className="flex h-full items-center justify-center text-[8px] text-slate-400">NO FOTO</div>}
+                                  <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 flex items-center justify-center text-white text-[9px] font-bold transition-opacity">USTADZ</div>
+                               </div>
+                               <div className="w-16 h-16 bg-slate-200 rounded-lg overflow-hidden border shadow-sm relative group">
+                                  {a.photoMurid ? <img src={a.photoMurid} className="w-full h-full object-cover" /> : <div className="flex h-full items-center justify-center text-[8px] text-slate-400">NO FOTO</div>}
+                                  <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 flex items-center justify-center text-white text-[9px] font-bold transition-opacity">MURID</div>
+                               </div>
+                            </div>
+                         </td>
+                         <td className="p-4 align-middle">
+                            <StatusBadge type={a.status} />
+                            <p className="text-[10px] font-bold text-slate-500 mt-2 font-mono">Masuk: {a.timeIn}</p>
+                            <p className="text-[10px] font-bold text-slate-500 mt-0.5 font-mono">Pulang: {a.timeOut}</p>
+                            {a.lateMin > config.lateTolerance && <p className="text-[10px] font-bold text-rose-600 mt-1">Terlambat: {a.lateMin} Menit</p>}
+                            {a.earlyMin > 0 && <p className="text-[10px] font-bold text-amber-600 mt-1">Pulang Terlalu Cepat: {a.earlyMin} Menit</p>}
+                         </td>
+                      </tr>
+                    ))}
+                 </tbody>
+              </table>
+           </div>
+        </div>
+     </div>
+  );
+
   if (!isLoggedIn) return renderLoginScreen();
 
   return (
@@ -453,7 +757,7 @@ const App = () => {
         <div className="p-6 border-b flex items-center justify-between bg-slate-50">
           <div className="flex items-center gap-3">
             <div className="bg-indigo-600 p-2 rounded-xl text-white shadow-sm"><ShieldCheck size={24} /></div>
-            <div><h1 className="font-bold text-base leading-tight">AL HIDAYAH</h1><p className="text-[9px] text-indigo-600 font-black uppercase tracking-widest">Portal Absensi</p></div>
+            <div><h1 className="font-bold text-base leading-tight">{config.appName}</h1><p className="text-[9px] text-indigo-600 font-black uppercase tracking-widest">{config.slogan}</p></div>
           </div>
           <button onClick={() => setIsSidebarOpen(false)} className="md:hidden p-2 text-slate-400 hover:text-blue-600 rounded-xl transition-all"><XCircle size={20} /></button>
         </div>
@@ -467,7 +771,6 @@ const App = () => {
               <button onClick={() => handleNav('admin-sch')} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl font-bold transition ${view === 'admin-sch' ? 'bg-indigo-600 text-white shadow-md' : 'text-slate-600 hover:bg-slate-50'}`}><CalendarDays size={18} /> Jadwal & Libur</button>
               <button onClick={() => handleNav('admin-loc')} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl font-bold transition ${view === 'admin-loc' ? 'bg-indigo-600 text-white shadow-md' : 'text-slate-600 hover:bg-slate-50'}`}><Map size={18} /> Zona Lokasi</button>
               <button onClick={() => handleNav('admin-set')} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl font-bold transition ${view === 'admin-set' ? 'bg-indigo-600 text-white shadow-md' : 'text-slate-600 hover:bg-slate-50'}`}><Settings size={18} /> Pengaturan Aplikasi</button>
-              {/* Tambahan Menu untuk Admin */}
               <button onClick={() => handleNav('mgmt-salary')} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl font-bold transition ${view === 'mgmt-salary' ? 'bg-indigo-600 text-white shadow-md' : 'text-slate-600 hover:bg-slate-50'}`}><DollarSign size={18} /> Monitoring Gaji</button>
             </>
           )}
@@ -477,6 +780,7 @@ const App = () => {
               <button onClick={() => handleNav('management')} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl font-bold transition ${view === 'management' ? 'bg-indigo-600 text-white shadow-md' : 'text-slate-600 hover:bg-slate-50'}`}><LayoutGrid size={18} /> Dashboard Manajemen</button>
               <button onClick={() => handleNav('mgmt-salary')} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl font-bold transition ${view === 'mgmt-salary' ? 'bg-indigo-600 text-white shadow-md' : 'text-slate-600 hover:bg-slate-50'}`}><TrendingUp size={18} /> Monitoring Gaji</button>
               <button onClick={() => handleNav('mgmt-notif')} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl font-bold transition ${view === 'mgmt-notif' ? 'bg-indigo-600 text-white shadow-md' : 'text-slate-600 hover:bg-slate-50'}`}><Info size={18} /> Log Notifikasi</button>
+              <button onClick={() => handleNav('mgmt-settings')} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl font-bold transition ${view === 'mgmt-settings' ? 'bg-indigo-600 text-white shadow-md' : 'text-slate-600 hover:bg-slate-50'}`}><Settings size={18} /> Parameter Gaji</button>
             </>
           )}
           {user.role === 'ustadz' && (
@@ -489,11 +793,11 @@ const App = () => {
         </nav>
       </aside>
 
-      <main className="flex-1 min-w-0 overflow-y-auto w-full">
+      <main className="flex-1 min-w-0 flex flex-col h-screen overflow-hidden relative">
         {/* HEADER */}
         <header className="bg-white border-b px-6 py-4 flex items-center justify-between sticky top-0 z-30 shadow-sm">
           <div className="flex items-center gap-4">
-            <button onClick={() => setIsSidebarOpen(!isSidebarOpen)} className="md:hidden p-2.5 bg-slate-50 border rounded-xl text-slate-600 hover:text-indigo-600"><Menu size={20} /></button>
+            <button onClick={() => setIsSidebarOpen(!isSidebarOpen)} className="p-2.5 bg-slate-50 border rounded-xl text-slate-600 hover:text-indigo-600"><Menu size={20} /></button>
             <div className="hidden sm:block">
               <h2 className="text-lg font-black tracking-tight">{user.role === 'admin' ? 'Portal Admin' : user.role === 'manajemen' ? 'Portal Manajemen' : "Assalamu'alaikum"}</h2>
               <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest mt-0.5">{config.locationName}</p>
@@ -512,6 +816,7 @@ const App = () => {
                          <p className="text-sm font-black text-slate-800 truncate">{user.name}</p>
                          <p className="text-[10px] font-bold text-indigo-600 uppercase mt-0.5">{user.role}</p>
                       </div>
+                      {user.role === 'ustadz' && <button onClick={() => handleNav('profile')} className="w-full text-left px-4 py-3 text-sm font-bold text-slate-600 hover:bg-slate-50 transition border-b">Profil Akun</button>}
                       <button onClick={() => { setIsLoggedIn(false); setUser(null); }} className="w-full flex items-center gap-2 px-4 py-3 text-sm font-bold text-rose-500 hover:bg-rose-50 transition"><LogOut size={16}/> Keluar Aplikasi</button>
                    </div>
                 )}
@@ -519,7 +824,7 @@ const App = () => {
           </div>
         </header>
 
-        <div className="p-4 md:p-8 space-y-6 max-w-6xl mx-auto pb-32">
+        <div className="flex-1 overflow-y-auto p-4 md:p-8 pb-32">
           
           {}
           {view === 'dashboard' && (
@@ -877,7 +1182,7 @@ const App = () => {
                <div className="bg-white rounded-xl border shadow-sm overflow-hidden">
                   <div className="p-6 border-b bg-slate-50 flex flex-col md:flex-row md:items-center justify-between gap-4">
                      <h4 className="font-bold text-slate-800 text-sm">Audit Keuangan & Verifikasi Foto Ganda 1:1</h4>
-                     <button onClick={downloadPDFReport} className="flex items-center gap-2 bg-indigo-600 text-white px-4 py-2 rounded-xl font-bold hover:bg-indigo-700 text-xs shadow-md transition"><Download size={14}/> Unduh Laporan PDF</button>
+                     <button onClick={() => generateCleanPDF(attendanceData, config, currentTime)} className="flex items-center gap-2 bg-indigo-600 text-white px-4 py-2 rounded-xl font-bold hover:bg-indigo-700 text-xs shadow-md transition"><Download size={14}/> Unduh Laporan PDF</button>
                   </div>
                   <div className="overflow-x-auto">
                      <table className="w-full text-sm text-left">
