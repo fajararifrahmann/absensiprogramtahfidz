@@ -117,7 +117,7 @@ const App = () => {
   const [currentTime, setCurrentTime] = useState(new Date());
   const [isSidebarOpen, setIsSidebarOpen] = useState(false); 
   const [isProfileDropdownOpen, setIsProfileDropdownOpen] = useState(false);
-  const [simulationMode, setSimulationMode] = useState(false);
+  const [simulationMode, setSimulationMode] = useState(true);
   const [toast, setToast] = useState({ show: false, msg: '' });
   const [confirmDialog, setConfirmDialog] = useState({ isOpen: false, msg: '', onConfirm: null });
   const [notifications, setNotifications] = useState([]);
@@ -401,7 +401,9 @@ const App = () => {
            }
            setUser(foundUser);
            setIsLoggedIn(true);
-           setView(foundUser.role === 'admin' ? 'admin' : foundUser.role === 'manajemen' ? 'management' : 'dashboard');
+           
+           setView(foundUser.role === 'admin' ? 'admin-dashboard' : foundUser.role === 'manajemen' ? 'mgmt-dashboard' : 'ustadz-dashboard');
+           
            setIsSidebarOpen(false); 
            showToastMsg(`🎉 Akses Diterima! Selamat datang, ${foundUser.name}`);
        } else {
